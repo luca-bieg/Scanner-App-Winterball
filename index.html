@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Einlass">
+<meta name="theme-color" content="#0b1424">
+<title>Einlass-Scanner</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#0b1424; --panel:#13233b; --panel2:#1a2f4d; --line:#26395a; --text:#eaf2fb; --muted:#8fa5c0;
+  --ice:#8fd3ff; --ok:#15a34a; --bad:#d92d2d; --warn:#e8760a;
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  overscroll-behavior:none;touch-action:manipulation;-webkit-text-size-adjust:100%}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:calc(var(--st) + 10px) 16px 10px;background:linear-gradient(#0f1d33,#0b1424);border-bottom:1px solid var(--line)}
+.ttl{display:flex;align-items:center;gap:10px;min-width:0}
+.ttl svg{width:28px;height:28px;color:var(--ice);flex:none}
+.ttl b{display:block;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttl small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.counter{flex:none;text-align:right;line-height:1.1}
+.counter b{font-size:26px;font-variant-numeric:tabular-nums}
+.counter span{font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums}
+.counter small{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.view{padding:14px 16px 24px;max-width:640px;margin:0 auto}
+nav{display:flex;background:#0e1b30;border-top:1px solid var(--line);padding-bottom:var(--sb)}
+nav button{flex:1;background:none;border:0;color:var(--muted);padding:10px 4px 9px;font:inherit;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--ice)}
+button{font:inherit;color:inherit}
+.btn{display:block;width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font-weight:600;font-size:16px;text-align:center}
+.btn:active{filter:brightness(1.2)}
+.btn.primary{background:#2b7de0;border-color:#2b7de0;color:#fff}
+.btn.danger{background:transparent;border-color:#7b2a2a;color:#ff9a9a}
+.btn+.btn{margin-top:10px}
+/* Kamera */
+.cam{position:relative;width:100%;aspect-ratio:3/4;max-height:58vh;background:#000;border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.guide{position:absolute;inset:0;pointer-events:none;display:none}
+.cam.live .guide{display:block}
+.guide i{position:absolute;width:15%;aspect-ratio:1;border:4px solid rgba(143,211,255,.9)}
+.guide i:nth-child(1){left:18%;top:20%;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
+.guide i:nth-child(2){right:18%;top:20%;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
+.guide i:nth-child(3){left:18%;bottom:20%;border-right:0;border-top:0;border-radius:0 0 0 12px}
+.guide i:nth-child(4){right:18%;bottom:20%;border-left:0;border-top:0;border-radius:0 0 12px 0}
+.cam-msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;background:rgba(5,10,20,.82)}
+.cam.live .cam-msg{display:none}
+.cam-msg .btn{width:auto;padding:14px 28px}
+.cam-msg p{margin:0;color:var(--muted);font-size:14px;max-width:28em}
+.banner{margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#3a2a0b;border:1px solid #7a5a14;color:#ffd98a;font-size:14px}
+.banner button{margin-top:8px;background:none;border:1px solid #7a5a14;color:#ffd98a;border-radius:8px;padding:6px 12px}
+.manual{margin-top:16px}
+.manual label,.sec h3{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-weight:600}
+input[type=search],input[type=text],textarea{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:16px}
+textarea{min-height:90px;resize:vertical;font-family:ui-monospace,Menlo,monospace;font-size:13px}
+input:focus,textarea:focus{outline:2px solid #2b7de0;outline-offset:0}
+.results{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+/* Gästeliste */
+.row{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);text-align:left}
+.row:active{filter:brightness(1.25)}
+.row .nr{flex:none;min-width:42px;text-align:center;font-weight:700;color:var(--ice);font-variant-numeric:tabular-nums}
+.row .nm{flex:1;min-width:0}
+.row .nm b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .nm small{color:var(--muted);font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.pill{flex:none;font-size:12px;font-weight:700;padding:4px 9px;border-radius:99px;background:#22344f;color:var(--muted)}
+.pill.in{background:#12452b;color:#7be3a4}
+.chips{display:flex;gap:8px;margin:10px 0 12px}
+.chips button{flex:1;padding:8px 6px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--muted);font-size:14px}
+.chips button.on{background:var(--panel2);color:var(--text);border-color:#3a5a88}
+.list{display:grid;gap:6px}
+.empty{color:var(--muted);text-align:center;padding:28px 8px}
+/* Daten */
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.sec h3{margin-bottom:10px}
+.sec p{margin:0 0 10px;color:var(--muted);font-size:14px}
+.stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}
+.stat:last-of-type{border-bottom:0}
+.stat span{color:var(--muted)}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;font-size:0}
+.ok-dot{color:#7be3a4}.bad-dot{color:#ffb86b}
+a{color:var(--ice)}
+/* Ergebnis-Overlay */
+#result{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:calc(var(--st) + 24px) 24px calc(var(--sb) + 24px);text-align:center;color:#fff}
+#result.ok{background:var(--ok)}#result.bad{background:var(--bad)}#result.warn{background:var(--warn)}
+#result .icon svg{width:120px;height:120px}
+#result .title{font-size:30px;font-weight:800;letter-spacing:.05em}
+#result .name{font-size:40px;font-weight:700;line-height:1.1;margin:14px 0 2px;word-break:break-word}
+#result .sub{font-size:20px;opacity:.95}
+#result .tiny{font-size:14px;opacity:.85;margin-top:10px;word-break:break-all}
+#result .acts{margin-top:26px;display:flex;gap:10px;width:100%;max-width:340px}
+#result .acts button{flex:1;padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,.8);background:rgba(0,0,0,.18);color:#fff;font-weight:700;font-size:16px}
+#result .bar{position:absolute;left:0;bottom:0;height:6px;background:rgba(255,255,255,.7);width:100%;transform-origin:left}
+#result.ok .bar{animation:shrink var(--dur,2.2s) linear forwards}
+@keyframes shrink{to{transform:scaleX(0)}}
+#toast{position:fixed;left:50%;bottom:calc(var(--sb) + 76px);transform:translateX(-50%);background:#e8f1fb;color:#0b1424;padding:10px 16px;border-radius:99px;font-size:14px;font-weight:600;z-index:60;max-width:90vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="flake" viewBox="-12 -12 24 24"><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none">
+    <path id="arm" d="M0 0V-10.5M0 -6.2l-2.8 -2.8M0 -6.2l2.8 -2.8"/>
+    <use href="#arm" transform="rotate(60)"/><use href="#arm" transform="rotate(120)"/><use href="#arm" transform="rotate(180)"/>
+    <use href="#arm" transform="rotate(240)"/><use href="#arm" transform="rotate(300)"/></g></symbol>
+</svg>
+<div id="app">
+  <header>
+    <div class="ttl"><svg><use href="#flake"/></svg><div><b id="evName">Einlass</b><small id="evSub">Keine Gästeliste geladen</small></div></div>
+    <div class="counter" aria-live="polite"><b id="cIn">0</b><span> / <span id="cAll">0</span></span><small>drin</small></div>
+  </header>
+
+  <main>
+    <section id="v-scan" class="view">
+      <div class="cam" id="cam">
+        <video id="video" playsinline muted autoplay></video>
+        <div class="guide"><i></i><i></i><i></i><i></i></div>
+        <div class="cam-msg" id="camMsg">
+          <button class="btn primary" id="btnCam">Kamera starten</button>
+          <p id="camHint">Das Ticket mit dem QR-Code etwa eine Handbreit vor die Kamera halten.</p>
+        </div>
+      </div>
+      <div class="banner" id="noList" hidden>Noch keine Gästeliste geladen. Ohne Liste ist jedes Ticket ungültig.<br><button id="goData">Zur Gästeliste</button></div>
+      <div class="manual">
+        <label for="q1">Manuell einchecken (Nummer, Name oder Code)</label>
+        <input id="q1" type="search" placeholder="Ticketnummer, Name oder Code" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+        <ul class="results" id="r1"></ul>
+      </div>
+    </section>
+
+    <section id="v-list" class="view" hidden>
+      <input id="q2" type="search" placeholder="Gast suchen …" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="chips" id="chips">
+        <button data-f="all" class="on">Alle</button><button data-f="in">Drin</button><button data-f="open">Noch offen</button>
+      </div>
+      <div class="list" id="list"></div>
+    </section>
+
+    <section id="v-data" class="view" hidden>
+      <div class="sec">
+        <h3>Stand</h3>
+        <div class="stat"><span>Veranstaltung</span><b id="dEvent">–</b></div>
+        <div class="stat"><span>Tickets</span><b id="dTickets">0</b></div>
+        <div class="stat"><span>Eingelöst</span><b id="dIn">0</b></div>
+        <div class="stat"><span>Offline-Betrieb</span><b id="dOffline">wird geprüft …</b></div>
+      </div>
+
+      <div class="sec">
+        <h3>Gästeliste laden</h3>
+        <p>Die Datei <b>gaesteliste-….json</b> aus dem Ticket-Generator. Mehrfaches Laden ist okay: neue Tickets kommen dazu, bisherige Einlässe bleiben erhalten.</p>
+        <div class="btn primary filebtn">Datei auswählen<input type="file" id="fList" accept=".json,application/json,text/plain"></div>
+        <p style="margin-top:12px">Oder den Inhalt hier einfügen:</p>
+        <textarea id="tList" placeholder='{"format":"winterball-tickets", …}' spellcheck="false"></textarea>
+        <button class="btn" id="bList">Aus Text laden</button>
+      </div>
+
+      <div class="sec">
+        <h3>Abgleich zwischen Handys</h3>
+        <p>Bei mehreren Scan-Handys ohne Netz kennt jedes nur seine eigenen Einlässe. Zum Abgleich (z. B. in der Pause): Einlässe exportieren, per AirDrop oder Nachricht ans andere Handy senden und dort importieren.</p>
+        <button class="btn" id="bExport">Eingelöste exportieren / teilen</button>
+        <button class="btn" id="bCopy">Eingelöste in Zwischenablage kopieren</button>
+        <div class="btn filebtn" style="margin-top:10px">Eingelöste importieren (Datei)<input type="file" id="fRed" accept=".json,application/json,text/plain"></div>
+        <textarea id="tRed" placeholder="… oder kopierten Text hier einfügen" style="margin-top:10px" spellcheck="false"></textarea>
+        <button class="btn" id="bRed">Eingelöste aus Text übernehmen</button>
+      </div>
+
+      <div class="sec">
+        <h3>Testlauf beenden</h3>
+        <p>Setzt alle Einlässe zurück, die Gästeliste bleibt. Vor dem Ball einmal ausführen, wenn ihr getestet habt.</p>
+        <button class="btn danger" id="bReset">Alle Einlässe zurücksetzen</button>
+      </div>
+      <p style="color:var(--muted);font-size:12px;text-align:center">Gästenamen bleiben auf diesem Gerät gespeichert und werden nirgends hochgeladen.<br>Version c5d1cb5c</p>
+    </section>
+  </main>
+
+  <nav>
+    <button data-v="scan" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>Scannen</button>
+    <button data-v="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Gäste</button>
+    <button data-v="data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>Daten</button>
+  </nav>
+
+  <div id="result" hidden>
+    <div class="icon" id="rIcon"></div>
+    <div class="title" id="rTitle"></div>
+    <div class="name" id="rName"></div>
+    <div class="sub" id="rSub"></div>
+    <div class="tiny" id="rTiny"></div>
+    <div class="acts" id="rActs"></div>
+    <div class="bar" id="rBar"></div>
+  </div>
+  <div id="toast" hidden></div>
+</div>
+
+<script>
+/*!
+ * Kleiner QR-Decoder für das Winterball-Ticketsystem (Eigenentwicklung, keine Abhängigkeiten).
+ * Unterstützt: Versionen 1–10, Fehlerkorrektur M und Q, Modi Numerisch / Alphanumerisch / Byte.
+ * Aufruf: QRDecode(rgbaPixel, breite, höhe) -> { text, version, level, corners } oder null
+ */
+(function (global) {
+  'use strict';
+
+  /* ---------------- GF(256) und Reed-Solomon ---------------- */
+  const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  for (let i = 0, x = 1; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 256) x ^= 0x11d; }
+  for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  const mul = (a, b) => (a && b) ? EXP[LOG[a] + LOG[b]] : 0;
+  const div = (a, b) => a ? EXP[LOG[a] + 255 - LOG[b]] : 0;
+  const pw = (e) => EXP[((e % 255) + 255) % 255];
+
+  // Korrigiert cw (Daten + Prüfbytes) an Ort und Stelle. true = fehlerfrei bzw. korrigiert.
+  function rsCorrect(cw, nEc) {
+    const n = cw.length, S = new Array(nEc);
+    let clean = true;
+    for (let j = 0; j < nEc; j++) {
+      let s = 0;
+      for (let i = 0; i < n; i++) s = mul(s, EXP[j]) ^ cw[i];
+      S[j] = s; if (s) clean = false;
+    }
+    if (clean) return true;
+    // Berlekamp-Massey
+    let C = [1], B = [1], L = 0, m = 1, b = 1;
+    for (let i = 0; i < nEc; i++) {
+      let d = S[i];
+      for (let j = 1; j <= L; j++) d ^= mul(C[j] || 0, S[i - j]);
+      if (d === 0) { m++; continue; }
+      const coef = div(d, b), T = C.slice();
+      while (C.length < B.length + m) C.push(0);
+      for (let j = 0; j < B.length; j++) C[j + m] ^= mul(coef, B[j]);
+      if (2 * L <= i) { L = i + 1 - L; B = T; b = d; m = 1; } else m++;
+    }
+    if (L * 2 > nEc) return false;
+    // Chien-Suche
+    const pos = [];
+    for (let k = 0; k < n; k++) {
+      let v = 0;
+      for (let j = 0; j <= L; j++) v ^= mul(C[j] || 0, pw(-k * j));
+      if (v === 0) pos.push(k);
+    }
+    if (pos.length !== L) return false;
+    // Forney
+    const Om = new Array(nEc).fill(0);
+    for (let i = 0; i < nEc; i++) {
+      let v = 0;
+      for (let j = 0; j <= Math.min(i, L); j++) v ^= mul(C[j] || 0, S[i - j]);
+      Om[i] = v;
+    }
+    for (const k of pos) {
+      let num = 0, den = 0;
+      for (let i = 0; i < nEc; i++) num ^= mul(Om[i], pw(-k * i));
+      for (let j = 1; j <= L; j += 2) den ^= mul(C[j] || 0, pw(-k * (j - 1)));
+      if (den === 0) return false;
+      cw[n - 1 - k] ^= mul(pw(k), div(num, den));
+    }
+    // Kontrolle
+    for (let j = 0; j < nEc; j++) {
+      let s = 0;
+      for (let i = 0; i < n; i++) s = mul(s, EXP[j]) ^ cw[i];
+      if (s) return false;
+    }
+    return true;
+  }
+
+  /* ---------------- Tabellen ---------------- */
+  // [Version] = [Gesamt-Codewörter, Prüfbytes je Block, [[Anzahl Blöcke, Datenbytes je Block], ...]]
+  const EC = {
+    M: [null, [26, 10, [[1, 16]]], [44, 16, [[1, 28]]], [70, 26, [[1, 44]]], [100, 18, [[2, 32]]], [134, 24, [[2, 43]]],
+      [172, 16, [[4, 27]]], [196, 18, [[4, 31]]], [242, 22, [[2, 38], [2, 39]]], [292, 22, [[3, 36], [2, 37]]], [346, 26, [[4, 43], [1, 44]]]],
+    Q: [null, [26, 13, [[1, 13]]], [44, 22, [[1, 22]]], [70, 18, [[2, 17]]], [100, 26, [[2, 24]]], [134, 18, [[2, 15], [2, 16]]],
+      [172, 24, [[4, 19]]], [196, 18, [[2, 14], [4, 15]]], [242, 22, [[4, 18], [2, 19]]], [292, 20, [[4, 16], [4, 17]]], [346, 24, [[6, 19], [2, 20]]]]
+  };
+  const ALIGN = [null, [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50]];
+  const ALNUM = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
+
+  const FORMAT_CODES = [];
+  for (let d = 0; d < 32; d++) {
+    let r = d << 10;
+    for (let i = 14; i >= 10; i--) if (r & (1 << i)) r ^= 0x537 << (i - 10);
+    FORMAT_CODES.push(((d << 10) | r) ^ 0x5412);
+  }
+  const popcount = (x) => { let c = 0; while (x) { x &= x - 1; c++; } return c; };
+  function matchFormat(bits) {
+    let best = -1, bd = 99;
+    for (let d = 0; d < 32; d++) { const dist = popcount(bits ^ FORMAT_CODES[d]); if (dist < bd) { bd = dist; best = d; } }
+    return { data: best, dist: bd };
+  }
+
+  const MASKS = [
+    (r, c) => ((r + c) & 1) === 0,
+    (r, c) => (r & 1) === 0,
+    (r, c) => c % 3 === 0,
+    (r, c) => (r + c) % 3 === 0,
+    (r, c) => (((r >> 1) + ((c / 3) | 0)) & 1) === 0,
+    (r, c) => ((r * c) & 1) + ((r * c) % 3) === 0,
+    (r, c) => ((((r * c) & 1) + ((r * c) % 3)) & 1) === 0,
+    (r, c) => ((((r + c) & 1) + ((r * c) % 3)) & 1) === 0
+  ];
+
+  const fmCache = {};
+  function funcMask(ver) {
+    if (fmCache[ver]) return fmCache[ver];
+    const dim = 17 + 4 * ver, m = new Uint8Array(dim * dim);
+    const rect = (r0, r1, c0, c1) => { for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) m[r * dim + c] = 1; };
+    rect(0, 8, 0, 8); rect(0, 8, dim - 8, dim - 1); rect(dim - 8, dim - 1, 0, 8);
+    rect(6, 6, 0, dim - 1); rect(0, dim - 1, 6, 6);
+    const p = ALIGN[ver], last = p[p.length - 1];
+    for (const r of p) for (const c of p) {
+      if ((r === 6 && c === 6) || (r === 6 && c === last) || (r === last && c === 6)) continue;
+      rect(r - 2, r + 2, c - 2, c + 2);
+    }
+    if (ver >= 7) { rect(0, 5, dim - 11, dim - 9); rect(dim - 11, dim - 9, 0, 5); }
+    return (fmCache[ver] = m);
+  }
+
+  /* ---------------- Matrix -> Text ---------------- */
+  function readFormat(get, dim) {
+    let a = 0, b = 0;
+    for (let i = 0; i <= 5; i++) a = (a << 1) | get(8, i);
+    a = (a << 1) | get(8, 7); a = (a << 1) | get(8, 8); a = (a << 1) | get(7, 8);
+    for (let j = 5; j >= 0; j--) a = (a << 1) | get(j, 8);
+    for (let j = dim - 1; j >= dim - 7; j--) b = (b << 1) | get(j, 8);
+    for (let i = dim - 8; i < dim; i++) b = (b << 1) | get(8, i);
+    const fa = matchFormat(a), fb = matchFormat(b), f = fa.dist <= fb.dist ? fa : fb;
+    return f.dist <= 3 ? f.data : -1;
+  }
+
+  function readCodewords(get, dim, fm, maskFn, total) {
+    const out = new Uint8Array(total), nbits = total * 8;
+    let bit = 0, up = true;
+    for (let right = dim - 1; right >= 1; right -= 2) {
+      if (right === 6) right = 5;
+      for (let vert = 0; vert < dim; vert++) {
+        const row = up ? dim - 1 - vert : vert;
+        for (let j = 0; j < 2; j++) {
+          const col = right - j;
+          if (fm[row * dim + col]) continue;
+          if (bit < nbits) {
+            let v = get(row, col);
+            if (maskFn(row, col)) v ^= 1;
+            out[bit >> 3] |= v << (7 - (bit & 7));
+          }
+          bit++;
+        }
+      }
+      up = !up;
+    }
+    return bit >= nbits ? out : null;
+  }
+
+  function decodeCodewords(raw, ver, level) {
+    const [, ecPer, groups] = EC[level][ver];
+    const blocks = [];
+    for (const [cnt, dc] of groups) for (let i = 0; i < cnt; i++) blocks.push({ dc, cw: new Array(dc + ecPer) });
+    let idx = 0;
+    const maxDc = Math.max(...groups.map((g) => g[1]));
+    for (let i = 0; i < maxDc; i++) for (const b of blocks) if (i < b.dc) b.cw[i] = raw[idx++];
+    for (let i = 0; i < ecPer; i++) for (const b of blocks) b.cw[b.dc + i] = raw[idx++];
+    const data = [];
+    for (const b of blocks) {
+      if (!rsCorrect(b.cw, ecPer)) return null;
+      for (let i = 0; i < b.dc; i++) data.push(b.cw[i]);
+    }
+    return data;
+  }
+
+  function decodeBytes(arr) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(arr)); }
+    catch (e) { return String.fromCharCode.apply(null, arr); }
+  }
+
+  function parseData(data, ver) {
+    const total = data.length * 8;
+    let p = 0;
+    const read = (n) => {
+      if (p + n > total) throw new Error('eof');
+      let v = 0;
+      for (let i = 0; i < n; i++, p++) v = (v << 1) | ((data[p >> 3] >> (7 - (p & 7))) & 1);
+      return v;
+    };
+    const cb = ver < 10 ? [10, 9, 8] : [12, 11, 16];
+    let text = '';
+    try {
+      while (p + 4 <= total) {
+        const mode = read(4);
+        if (mode === 0) break;
+        if (mode === 1) {
+          let n = read(cb[0]);
+          while (n >= 3) { text += String(read(10)).padStart(3, '0'); n -= 3; }
+          if (n === 2) text += String(read(7)).padStart(2, '0'); else if (n === 1) text += String(read(4));
+        } else if (mode === 2) {
+          let n = read(cb[1]);
+          while (n >= 2) { const v = read(11); text += ALNUM[(v / 45) | 0] + ALNUM[v % 45]; n -= 2; }
+          if (n === 1) text += ALNUM[read(6)];
+        } else if (mode === 4) {
+          const n = read(cb[2]), arr = [];
+          for (let i = 0; i < n; i++) arr.push(read(8));
+          text += decodeBytes(arr);
+        } else if (mode === 7) {
+          const b = read(8);
+          if ((b & 0x80) === 0) { /* 1 Byte */ } else if ((b & 0xc0) === 0x80) read(8); else read(16);
+        } else return null;
+      }
+    } catch (e) { return null; }
+    return text;
+  }
+
+  function decodeMatrix(get, ver) {
+    const dim = 17 + 4 * ver;
+    const f = readFormat(get, dim);
+    if (f < 0) return null;
+    const ecBits = f >> 3, mask = f & 7;
+    const level = ecBits === 0 ? 'M' : ecBits === 3 ? 'Q' : null;
+    if (!level) return null;
+    const raw = readCodewords(get, dim, funcMask(ver), MASKS[mask], EC[level][ver][0]);
+    if (!raw) return null;
+    const data = decodeCodewords(raw, ver, level);
+    if (!data) return null;
+    const text = parseData(data, ver);
+    return text === null ? null : { text, version: ver, level };
+  }
+
+  /* ---------------- Bild -> Schwarz/Weiß ---------------- */
+  function binarize(rgba, w, h, ratio) {
+    const n = w * h, g = new Uint8Array(n);
+    for (let i = 0, j = 0; i < n; i++, j += 4) g[i] = (rgba[j] * 77 + rgba[j + 1] * 150 + rgba[j + 2] * 29) >> 8;
+    const W1 = w + 1, I = new Uint32Array(W1 * (h + 1));
+    for (let y = 0; y < h; y++) {
+      let row = 0;
+      for (let x = 0; x < w; x++) { row += g[y * w + x]; I[(y + 1) * W1 + x + 1] = I[y * W1 + x + 1] + row; }
+    }
+    const half = (Math.max(15, (Math.min(w, h) / 8) | 0) | 1) >> 1;
+    const bin = new Uint8Array(n);
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - half), y1 = Math.min(h - 1, y + half);
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - half), x1 = Math.min(w - 1, x + half);
+        const sum = I[(y1 + 1) * W1 + x1 + 1] - I[y0 * W1 + x1 + 1] - I[(y1 + 1) * W1 + x0] + I[y0 * W1 + x0];
+        const area = (x1 - x0 + 1) * (y1 - y0 + 1);
+        bin[y * w + x] = g[y * w + x] * area < sum * ratio ? 1 : 0;
+      }
+    }
+    return bin;
+  }
+
+  /* ---------------- Positionsmarken (Finder) ---------------- */
+  // Prüft eine Linie durch (x,y) in Richtung (dx,dy) auf das Verhältnis 1:1:3:1:1.
+  function crossCheck(bin, w, h, x, y, dx, dy) {
+    if (!bin[y * w + x]) return null;
+    const c = [0, 0, 0, 0, 0];
+    let px = x, py = y;
+    const inb = () => px >= 0 && py >= 0 && px < w && py < h;
+    while (inb() && bin[py * w + px] === 1) { c[2]++; px -= dx; py -= dy; }
+    if (!inb()) return null;
+    while (inb() && bin[py * w + px] === 0) { c[1]++; px -= dx; py -= dy; }
+    if (!inb()) return null;
+    while (inb() && bin[py * w + px] === 1) { c[0]++; px -= dx; py -= dy; }
+    const up2 = c[2];
+    px = x + dx; py = y + dy;
+    while (inb() && bin[py * w + px] === 1) { c[2]++; px += dx; py += dy; }
+    if (!inb()) return null;
+    while (inb() && bin[py * w + px] === 0) { c[3]++; px += dx; py += dy; }
+    if (!inb()) return null;
+    while (inb() && bin[py * w + px] === 1) { c[4]++; px += dx; py += dy; }
+    const ms = ratioMs(c[0], c[1], c[2], c[3], c[4]);
+    if (!ms) return null;
+    const start = (dx ? x : y) - up2 + 1, down2 = c[2] - up2;
+    return { c: start + (up2 + down2) / 2, total: c[0] + c[1] + c[2] + c[3] + c[4] };
+  }
+
+  function ratioMs(c0, c1, c2, c3, c4) {
+    const total = c0 + c1 + c2 + c3 + c4;
+    if (total < 7) return 0;
+    const ms = total / 7, v = ms * 0.65;
+    if (Math.abs(c0 - ms) < v && Math.abs(c1 - ms) < v && Math.abs(c2 - 3 * ms) < 3 * v &&
+        Math.abs(c3 - ms) < v && Math.abs(c4 - ms) < v) return ms;
+    return 0;
+  }
+
+  function findFinders(bin, w, h) {
+    const cands = [], runs = new Int32Array(w + 2), starts = new Int32Array(w + 2);
+    for (let y = 0; y < h; y++) {
+      const row = y * w, first = bin[row];
+      let n = 0, cur = first, st = 0;
+      for (let x = 1; x < w; x++) {
+        if (bin[row + x] !== cur) { runs[n] = x - st; starts[n] = st; n++; st = x; cur = bin[row + x]; }
+      }
+      runs[n] = w - st; starts[n] = st; n++;
+      for (let k = 0; k + 4 < n; k++) {
+        if ((first ^ (k & 1)) !== 1) continue;
+        if (!ratioMs(runs[k], runs[k + 1], runs[k + 2], runs[k + 3], runs[k + 4])) continue;
+        const sx = Math.min(w - 1, Math.floor(starts[k + 2] + runs[k + 2] / 2));
+        const v = crossCheck(bin, w, h, sx, y, 0, 1);
+        if (!v) continue;
+        const sy = Math.min(h - 1, Math.max(0, Math.floor(v.c)));
+        const hh = crossCheck(bin, w, h, sx, sy, 1, 0);
+        if (!hh) continue;
+        const r = hh.total / v.total;
+        if (r < 0.6 || r > 1.67) continue;
+        const cx = hh.c, cy = v.c, ms = (hh.total + v.total) / 14;
+        let merged = false;
+        for (const c of cands) {
+          if (Math.abs(c.x - cx) <= c.ms * 1.2 && Math.abs(c.y - cy) <= c.ms * 1.2 && ms / c.ms > 0.7 && ms / c.ms < 1.43) {
+            const t = c.n + 1;
+            c.x = (c.x * c.n + cx) / t; c.y = (c.y * c.n + cy) / t; c.ms = (c.ms * c.n + ms) / t; c.n = t;
+            merged = true; break;
+          }
+        }
+        if (!merged) cands.push({ x: cx, y: cy, ms, n: 1 });
+      }
+    }
+    return cands;
+  }
+
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  function pickTriples(cands) {
+    const c = cands.filter((x) => x.n >= 2).sort((a, b) => b.n - a.n).slice(0, 9), out = [];
+    for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) for (let k = j + 1; k < c.length; k++) {
+      const P = [c[i], c[j], c[k]];
+      const mmax = Math.max(P[0].ms, P[1].ms, P[2].ms), mmin = Math.min(P[0].ms, P[1].ms, P[2].ms);
+      if (mmax / mmin > 1.6) continue;
+      const d = [dist(P[1], P[2]), dist(P[0], P[2]), dist(P[0], P[1])];
+      let hi = 0;
+      for (let t = 1; t < 3; t++) if (d[t] > d[hi]) hi = t;
+      const TL = P[hi], A = P[(hi + 1) % 3], B = P[(hi + 2) % 3];
+      const l1 = dist(TL, A), l2 = dist(TL, B), hyp = d[hi];
+      const s1 = Math.abs(l1 - l2) / Math.max(l1, l2);
+      if (s1 > 0.4) continue;
+      const s2 = Math.abs(hyp - 1.4142 * (l1 + l2) / 2) / hyp;
+      if (s2 > 0.3) continue;
+      if ((l1 + l2) / 2 < 8 * (P[0].ms + P[1].ms + P[2].ms) / 3) continue;
+      const cr = (A.x - TL.x) * (B.y - TL.y) - (A.y - TL.y) * (B.x - TL.x);
+      out.push({ score: s1 + s2 + (mmax - mmin) / mmax, TL, TR: cr > 0 ? A : B, BL: cr > 0 ? B : A });
+    }
+    return out.sort((a, b) => a.score - b.score);
+  }
+
+  /* ---------------- Geometrie ---------------- */
+  // Abstand vom Mittelpunkt einer Positionsmarke bis zum Außenrand entlang (dx,dy): ≈ 3,5 Module
+  function walkRun(bin, w, h, x, y, dx, dy) {
+    let state = 0;
+    for (let t = 0; t < w; t += 0.5) {
+      const px = Math.floor(x + dx * t), py = Math.floor(y + dy * t);
+      if (px < 0 || py < 0 || px >= w || py >= h) return 0;
+      const b = bin[py * w + px];
+      if (t === 0 && !b) return 0;
+      if (state === 0 && !b) state = 1;
+      else if (state === 1 && b) state = 2;
+      else if (state === 2 && !b) return t;
+    }
+    return 0;
+  }
+
+  function homography(src, dst) {
+    const n = 8, A = [];
+    for (let i = 0; i < 4; i++) {
+      const u = src[i][0], v = src[i][1], x = dst[i][0], y = dst[i][1];
+      A.push([u, v, 1, 0, 0, 0, -u * x, -v * x, x]);
+      A.push([0, 0, 0, u, v, 1, -u * y, -v * y, y]);
+    }
+    for (let c = 0; c < n; c++) {
+      let p = c;
+      for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      if (Math.abs(A[p][c]) < 1e-9) return null;
+      const t = A[c]; A[c] = A[p]; A[p] = t;
+      for (let r = 0; r < n; r++) {
+        if (r === c) continue;
+        const f = A[r][c] / A[c][c];
+        if (f) for (let k = c; k <= n; k++) A[r][k] -= f * A[c][k];
+      }
+    }
+    return A.map((row, i) => row[n] / row[i]);
+  }
+
+  function makeGet(bin, w, h, H) {
+    const OFF = [[0, 0, 2], [0.25, 0, 1], [-0.25, 0, 1], [0, 0.25, 1], [0, -0.25, 1]];
+    return (r, c) => {
+      let s = 0;
+      for (let k = 0; k < 5; k++) {
+        const u = c + 0.5 + OFF[k][0], v = r + 0.5 + OFF[k][1];
+        const d = H[6] * u + H[7] * v + 1;
+        const px = Math.floor((H[0] * u + H[1] * v + H[2]) / d), py = Math.floor((H[3] * u + H[4] * v + H[5]) / d);
+        if (px >= 0 && py >= 0 && px < w && py < h) s += OFF[k][2] * bin[py * w + px];
+      }
+      return s >= 4 ? 1 : 0;
+    };
+  }
+
+  function alignScore(bin, w, h, cx, cy, mux, muy, mvx, mvy) {
+    let s = 0;
+    for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+      const px = Math.floor(cx + i * mux + j * mvx), py = Math.floor(cy + i * muy + j * mvy);
+      if (px < 0 || py < 0 || px >= w || py >= h) continue;
+      const want = Math.max(Math.abs(i), Math.abs(j)) === 1 ? 0 : 1;
+      if (bin[py * w + px] === want) s++;
+    }
+    return s;
+  }
+
+  function findAlignment(bin, w, h, TL, mux, muy, mvx, mvy, dim) {
+    const k = dim - 10, ex = TL.x + k * (mux + mvx), ey = TL.y + k * (muy + mvy);
+    const ms = Math.hypot(mux, muy), R = Math.ceil(5 * ms), step = ms > 7 ? 2 : 1;
+    let best = -1, sx = 0, sy = 0, cnt = 0;
+    for (let dy = -R; dy <= R; dy += step) for (let dx = -R; dx <= R; dx += step) {
+      const cx = ex + dx, cy = ey + dy, sc = alignScore(bin, w, h, cx, cy, mux, muy, mvx, mvy);
+      if (sc > best) { best = sc; sx = cx; sy = cy; cnt = 1; } else if (sc === best) { sx += cx; sy += cy; cnt++; }
+    }
+    return best >= 22 ? { x: sx / cnt, y: sy / cnt } : null;
+  }
+
+  function tryVersion(bin, w, h, T, ver, mux, muy, mvx, mvy) {
+    const dim = 17 + 4 * ver, TL = T.TL, TR = T.TR, BL = T.BL;
+    const srcA = [[3.5, 3.5], [dim - 3.5, 3.5], [3.5, dim - 3.5]];
+    const dstA = [[TL.x, TL.y], [TR.x, TR.y], [BL.x, BL.y]];
+    const Hs = [];
+    if (ver >= 2) {
+      const al = findAlignment(bin, w, h, TL, mux, muy, mvx, mvy, dim);
+      if (al) Hs.push(homography(srcA.concat([[dim - 6.5, dim - 6.5]]), dstA.concat([[al.x, al.y]])));
+    }
+    Hs.push(homography(srcA.concat([[dim - 3.5, dim - 3.5]]), dstA.concat([[TR.x + BL.x - TL.x, TR.y + BL.y - TL.y]])));
+    for (const H of Hs) {
+      if (!H) continue;
+      const res = decodeMatrix(makeGet(bin, w, h, H), ver);
+      if (res) {
+        res.corners = [[0, 0], [dim, 0], [dim, dim], [0, dim]].map(([u, v]) => {
+          const d = H[6] * u + H[7] * v + 1;
+          return { x: (H[0] * u + H[1] * v + H[2]) / d, y: (H[3] * u + H[4] * v + H[5]) / d };
+        });
+        return res;
+      }
+    }
+    return null;
+  }
+
+  function decodeFromTriple(bin, w, h, T) {
+    const { TL, TR, BL } = T;
+    const ux = TR.x - TL.x, uy = TR.y - TL.y, vx = BL.x - TL.x, vy = BL.y - TL.y;
+    const dU = Math.hypot(ux, uy), dV = Math.hypot(vx, vy);
+    const nu = [ux / dU, uy / dU], nv = [vx / dV, vy / dV];
+    const both = (P, d) => {
+      const a = walkRun(bin, w, h, P.x, P.y, d[0], d[1]), b = walkRun(bin, w, h, P.x, P.y, -d[0], -d[1]);
+      return a > 0 && b > 0 ? a + b : 0;
+    };
+    const avg = (arr) => arr.reduce((s, x) => s + x, 0) / arr.length;
+    const wU = [both(TL, nu), both(TR, nu)].filter(Boolean), wV = [both(TL, nv), both(BL, nv)].filter(Boolean);
+    const msFallback = (TL.ms + TR.ms + BL.ms) / 3;
+    const msU = wU.length ? avg(wU) / 7 : msFallback, msV = wV.length ? avg(wV) / 7 : msFallback;
+    const dimEst = (dU / msU + dV / msV) / 2 + 7;
+    const v0 = Math.round((dimEst - 17) / 4);
+    for (const ver of [v0, v0 - 1, v0 + 1]) {
+      if (ver < 1 || ver > 10) continue;
+      const s = 1 / (17 + 4 * ver - 7);
+      const res = tryVersion(bin, w, h, T, ver, ux * s, uy * s, vx * s, vy * s);
+      if (res) return res;
+    }
+    return null;
+  }
+
+  function QRDecode(rgba, w, h) {
+    // Mehrere Schwellen probieren: erst normal, dann strenger/lockerer (hilft bei Unschärfe und schwachem Kontrast)
+    for (const ratio of [0.9, 0.97, 0.82]) {
+      const bin = binarize(rgba, w, h, ratio);
+      const triples = pickTriples(findFinders(bin, w, h));
+      for (let i = 0; i < triples.length && i < 4; i++) {
+        const r = decodeFromTriple(bin, w, h, triples[i]);
+        if (r) return r;
+      }
+    }
+    return null;
+  }
+
+  global.QRDecode = QRDecode;
+  if (typeof module !== 'undefined' && module.exports) module.exports = { QRDecode, rsCorrect, EC, funcMask, ALIGN, _gf: { EXP, LOG, mul } };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+(function () {
+'use strict';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ß/g, 'ss');
+const pad = (n) => String(n).padStart(3, '0');
+const hhmm = (t) => new Date(t).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+const normCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const fmtCode = (c) => (c.length === 8 ? c.slice(0, 4) + '-' + c.slice(4) : c);
+function ago(t) {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return 'gerade eben';
+  if (m < 60) return 'vor ' + m + ' Min.';
+  return 'vor ' + Math.floor(m / 60) + ' Std. ' + (m % 60) + ' Min.';
+}
+
+/* ---------- Daten ---------- */
+const KEY = 'wb-scanner-v1';
+let S = { v: 1, event: '', listId: '', tickets: [], redeemed: {} };
+let byCode = new Map();
+function rebuild() { byCode = new Map(S.tickets.map((t) => [t.code, t])); }
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { const o = JSON.parse(raw); if (o && Array.isArray(o.tickets) && o.redeemed) S = Object.assign(S, o); }
+  } catch (e) { /* ignorieren */ }
+  rebuild();
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); return true; }
+  catch (e) { toast('Speichern nicht möglich (Speicher gesperrt oder voll)'); return false; }
+}
+const inCount = () => S.tickets.reduce((n, t) => n + (S.redeemed[t.code] ? 1 : 0), 0);
+
+let toastTimer;
+function toast(msg) {
+  const el = $('#toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
+}
+
+function updateHeader() {
+  $('#evName').textContent = S.event || 'Einlass';
+  $('#evSub').textContent = S.tickets.length ? S.tickets.length + ' Tickets geladen' : 'Keine Gästeliste geladen';
+  $('#cIn').textContent = inCount();
+  $('#cAll').textContent = S.tickets.length;
+  $('#noList').hidden = S.tickets.length > 0;
+}
+
+/* ---------- Ansichten ---------- */
+let view = 'scan', wantCam = false;
+function show(v) {
+  view = v;
+  for (const id of ['scan', 'list', 'data']) $('#v-' + id).hidden = id !== v;
+  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+  if (v === 'list') renderList();
+  if (v === 'data') renderData();
+  if (v === 'scan') { if (wantCam) startCamera(); } else stopCamera();
+  $('main').scrollTop = 0;
+}
+document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => show(b.dataset.v)));
+$('#goData').addEventListener('click', () => show('data'));
+
+/* ---------- Ton ---------- */
+let actx;
+function unlockAudio() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+  } catch (e) { /* kein Ton */ }
+}
+function beep(freq, dur, delay, type) {
+  if (!actx) return;
+  try {
+    const t0 = actx.currentTime + (delay || 0), o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch (e) { /* ignorieren */ }
+}
+function buzz(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) { /* iOS: nicht unterstützt */ } }
+
+/* ---------- Ergebnis ---------- */
+const ICONS = {
+  ok: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.6"/><path d="M7 12.5l3.2 3.2L17 9"/></svg>',
+  bad: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.6"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.6"/><path d="M12 7v6.2M12 16.6v.1"/></svg>'
+};
+let paused = false, resTimer = null, lastText = '', ignoreUntil = 0, lastRedeemed = null;
+
+function showResult(kind, o) {
+  paused = true; clearTimeout(resTimer);
+  const el = $('#result');
+  el.className = kind; el.hidden = false;
+  $('#rIcon').innerHTML = ICONS[kind];
+  $('#rTitle').textContent = o.title;
+  $('#rName').textContent = o.name || '';
+  $('#rSub').textContent = o.sub || '';
+  $('#rTiny').textContent = o.tiny || '';
+  const acts = $('#rActs'); acts.innerHTML = '';
+  if (kind === 'ok') {
+    const b = document.createElement('button'); b.textContent = 'Rückgängig';
+    b.addEventListener('click', (e) => { e.stopPropagation(); undoLast(); });
+    acts.appendChild(b);
+  }
+  const bar = $('#rBar'); bar.style.display = kind === 'ok' ? 'block' : 'none';
+  if (kind === 'ok') {
+    bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+    resTimer = setTimeout(dismiss, 2200);
+  }
+}
+function dismiss() {
+  clearTimeout(resTimer);
+  $('#result').hidden = true;
+  paused = false; ignoreUntil = Date.now() + 3000;
+}
+$('#result').addEventListener('click', dismiss);
+function undoLast() {
+  if (lastRedeemed && S.redeemed[lastRedeemed]) { delete S.redeemed[lastRedeemed]; save(); updateHeader(); toast('Einlass zurückgenommen'); }
+  lastRedeemed = null; dismiss();
+}
+
+function onCode(text, src) {
+  const now = Date.now();
+  if (src === 'scan' && text === lastText && now < ignoreUntil) return;
+  lastText = text;
+  unlockAudio();
+  const code = normCode(text), t = byCode.get(code);
+  if (!t) {
+    showResult('bad', { title: 'UNGÜLTIG', name: 'Kein Ticket', sub: 'Dieser Code steht nicht in der Gästeliste.', tiny: String(text).slice(0, 40) });
+    beep(180, 0.5, 0, 'sawtooth'); buzz([200, 80, 200]);
+  } else if (S.redeemed[code]) {
+    const at = S.redeemed[code];
+    showResult('warn', { title: 'BEREITS EINGELÖST', name: t.name || ('Ticket ' + pad(t.n)), sub: 'Eingelöst um ' + hhmm(at) + ' Uhr (' + ago(at) + ')', tiny: t.name ? 'Ticket Nr. ' + pad(t.n) : '' });
+    beep(330, 0.18, 0, 'square'); beep(330, 0.18, 0.28, 'square'); buzz([120, 80, 120]);
+  } else {
+    S.redeemed[code] = now; lastRedeemed = code; save(); updateHeader();
+    showResult('ok', { title: 'GÜLTIG', name: t.name || ('Ticket ' + pad(t.n)), sub: t.name ? 'Ticket Nr. ' + pad(t.n) : '', tiny: '' });
+    beep(880, 0.12, 0); beep(1320, 0.16, 0.12); buzz(60);
+  }
+}
+
+/* ---------- Kamera ---------- */
+const video = $('#video'), cam = $('#cam');
+const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+let stream = null, loopTimer = null, wakeLock = null, starting = false;
+
+function camMsg(text, showBtn) {
+  $('#camHint').textContent = text; $('#btnCam').hidden = !showBtn; cam.classList.remove('live');
+}
+async function startCamera() {
+  if (stream || starting) return;
+  starting = true; wantCam = true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    camMsg('Dieser Browser erlaubt keinen Kamerazugriff. Bitte Safari verwenden und die Seite über https öffnen.', false); starting = false; return;
+  }
+  try {
+    unlockAudio();
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+    video.srcObject = stream;
+    await video.play();
+    cam.classList.add('live');
+    try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { /* optional */ }
+    clearTimeout(loopTimer); loopTimer = setTimeout(tick, 150);
+  } catch (e) {
+    stream = null; wantCam = false;
+    const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+    camMsg(denied ? 'Kein Kamerazugriff. Auf dem iPhone: Einstellungen → Safari → Kamera → „Fragen“ oder „Erlauben“, dann hier erneut tippen.'
+                  : 'Kamera konnte nicht gestartet werden (' + (e && e.name || 'Fehler') + ').', true);
+  }
+  starting = false;
+}
+function stopCamera() {
+  clearTimeout(loopTimer);
+  if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  video.srcObject = null; cam.classList.remove('live');
+  if (wakeLock) { try { wakeLock.release(); } catch (e) { /* egal */ } wakeLock = null; }
+  if (wantCam) camMsg('Kamera pausiert.', true);
+}
+function tick() {
+  loopTimer = setTimeout(tick, 70);
+  if (!stream || paused || document.hidden || view !== 'scan') return;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (video.readyState < 2 || !vw) return;
+  const sc = Math.min(1, 1280 / Math.max(vw, vh)), w = Math.round(vw * sc), h = Math.round(vh * sc);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  ctx.drawImage(video, 0, 0, w, h);
+  let r = null;
+  try { r = QRDecode(ctx.getImageData(0, 0, w, h).data, w, h); } catch (e) { /* Frame überspringen */ }
+  if (r && r.text) onCode(r.text, 'scan');
+}
+$('#btnCam').addEventListener('click', () => { wantCam = true; startCamera(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (stream) { const w = wantCam; stopCamera(); wantCam = w; } }
+  else if (view === 'scan' && wantCam) startCamera();
+});
+
+/* ---------- Manuelle Suche ---------- */
+function matches(q) {
+  const f = fold(q).trim(), c = normCode(q);
+  if (!f) return [];
+  const num = /^\d{1,3}$/.test(f) ? +f : -1;
+  return S.tickets.filter((t) => t.n === num || fold(t.name).includes(f) || (c.length >= 3 && t.code.includes(c)));
+}
+$('#q1').addEventListener('input', (e) => {
+  const ul = $('#r1'); ul.innerHTML = '';
+  const res = matches(e.target.value).slice(0, 8);
+  if (e.target.value.trim() && !res.length) { ul.innerHTML = '<li class="empty" style="padding:10px">Kein Treffer.</li>'; return; }
+  for (const t of res) {
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.className = 'row';
+    const red = S.redeemed[t.code];
+    b.innerHTML = '<span class="nr">' + pad(t.n) + '</span><span class="nm"><b>' + esc(t.name || ('Ticket ' + pad(t.n))) + '</b><small>' + esc(fmtCode(t.code)) + '</small></span><span class="pill' + (red ? ' in' : '') + '">' + (red ? 'drin ' + hhmm(red) : 'offen') + '</span>';
+    b.addEventListener('click', () => { $('#q1').value = ''; ul.innerHTML = ''; $('#q1').blur(); onCode(t.code, 'manual'); });
+    li.appendChild(b); ul.appendChild(li);
+  }
+});
+
+/* ---------- Gästeliste ---------- */
+let filter = 'all';
+document.querySelectorAll('#chips button').forEach((b) => b.addEventListener('click', () => {
+  filter = b.dataset.f; document.querySelectorAll('#chips button').forEach((x) => x.classList.toggle('on', x === b)); renderList();
+}));
+$('#q2').addEventListener('input', renderList);
+function renderList() {
+  const box = $('#list'), q = $('#q2').value;
+  let rows = q.trim() ? matches(q) : S.tickets.slice();
+  if (filter === 'in') rows = rows.filter((t) => S.redeemed[t.code]);
+  if (filter === 'open') rows = rows.filter((t) => !S.redeemed[t.code]);
+  rows.sort((a, b) => (a.name && b.name ? fold(a.name).localeCompare(fold(b.name)) : 0) || a.n - b.n);
+  box.innerHTML = '';
+  if (!S.tickets.length) { box.innerHTML = '<div class="empty">Noch keine Gästeliste geladen.</div>'; return; }
+  if (!rows.length) { box.innerHTML = '<div class="empty">Keine Treffer.</div>'; return; }
+  for (const t of rows) {
+    const b = document.createElement('button'), red = S.redeemed[t.code];
+    b.className = 'row';
+    b.innerHTML = '<span class="nr">' + pad(t.n) + '</span><span class="nm"><b>' + esc(t.name || ('Ticket ' + pad(t.n))) + '</b><small>' + esc(fmtCode(t.code)) + '</small></span><span class="pill' + (red ? ' in' : '') + '">' + (red ? 'drin ' + hhmm(red) : 'offen') + '</span>';
+    b.addEventListener('click', () => {
+      const nm = t.name || 'Ticket ' + pad(t.n);
+      if (S.redeemed[t.code]) {
+        if (confirm(nm + ' ist seit ' + hhmm(S.redeemed[t.code]) + ' Uhr drin.\n\nEinlass zurücknehmen?')) { delete S.redeemed[t.code]; save(); updateHeader(); renderList(); }
+      } else if (confirm(nm + ' jetzt einchecken?')) { S.redeemed[t.code] = Date.now(); save(); updateHeader(); renderList(); }
+    });
+    box.appendChild(b);
+  }
+}
+
+/* ---------- Daten-Tab ---------- */
+function renderData() {
+  $('#dEvent').textContent = S.event || '–';
+  $('#dTickets').textContent = S.tickets.length;
+  $('#dIn').textContent = inCount();
+  const el = $('#dOffline');
+  if (!('serviceWorker' in navigator)) { el.innerHTML = '<span class="bad-dot">nicht verfügbar (nur über https)</span>'; return; }
+  navigator.serviceWorker.getRegistration().then((r) => {
+    el.innerHTML = r && r.active ? '<span class="ok-dot">bereit ✓</span>' : '<span class="bad-dot">noch nicht bereit – einmal mit Internet öffnen</span>';
+  }).catch(() => { el.textContent = '–'; });
+}
+function readFile(input, cb) {
+  const f = input.files && input.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => cb(String(r.result)); r.onerror = () => toast('Datei konnte nicht gelesen werden');
+  r.readAsText(f); input.value = '';
+}
+function parseJSON(txt) {
+  try { return JSON.parse(txt.trim()); } catch (e) { toast('Das ist keine gültige Datei (JSON-Fehler)'); return null; }
+}
+function importList(txt) {
+  const o = parseJSON(txt);
+  if (!o) return;
+  if (o.format !== 'winterball-tickets' || !Array.isArray(o.tickets)) { toast('Falsche Datei: bitte die Gästeliste aus dem Generator nehmen'); return; }
+  const tix = o.tickets.filter((t) => t && /^[A-Z0-9]{6,16}$/.test(String(t.code))).map((t) => ({ n: +t.n || 0, code: String(t.code), name: String(t.name || '') }));
+  if (!tix.length) { toast('Die Datei enthält keine Tickets'); return; }
+  if (S.tickets.length && S.listId && o.listId && S.listId !== o.listId) {
+    if (!confirm('Das ist eine ANDERE Gästeliste als die geladene.\nErsetzen? Bereits erfasste Einlässe gehen dabei verloren.')) return;
+    S.redeemed = {};
+    S.tickets = [];
+  }
+  const map = new Map(S.tickets.map((t) => [t.code, t]));
+  let added = 0;
+  for (const t of tix) { if (!map.has(t.code)) added++; map.set(t.code, t); }
+  S.tickets = Array.from(map.values()).sort((a, b) => a.n - b.n);
+  S.event = String(o.event || S.event || ''); S.listId = String(o.listId || S.listId || '');
+  rebuild(); save(); updateHeader(); renderData();
+  toast(added + ' Tickets übernommen, insgesamt ' + S.tickets.length);
+}
+$('#fList').addEventListener('change', (e) => readFile(e.target, importList));
+$('#bList').addEventListener('click', () => { const v = $('#tList').value; if (!v.trim()) return toast('Textfeld ist leer'); importList(v); $('#tList').value = ''; });
+
+function redeemedJSON() {
+  return JSON.stringify({ format: 'winterball-eingeloest', listId: S.listId, event: S.event, exported: new Date().toISOString(), redeemed: S.redeemed });
+}
+async function exportRed() {
+  if (!S.tickets.length) return toast('Noch keine Gästeliste geladen');
+  const now = new Date(), stamp = now.toISOString().slice(0, 10) + '_' + String(now.getHours()).padStart(2, '0') + String(now.getMinutes()).padStart(2, '0');
+  const file = new File([redeemedJSON()], 'eingeloest-' + stamp + '.json', { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Eingelöste Tickets' }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+}
+$('#bExport').addEventListener('click', exportRed);
+$('#bCopy').addEventListener('click', async () => {
+  if (!S.tickets.length) return toast('Noch keine Gästeliste geladen');
+  const txt = redeemedJSON();
+  try { await navigator.clipboard.writeText(txt); toast('Kopiert – jetzt am anderen Handy einfügen'); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Kopiert – jetzt am anderen Handy einfügen'); } catch (e2) { toast('Kopieren nicht möglich, bitte „exportieren“ nutzen'); }
+    ta.remove();
+  }
+});
+function importRed(txt) {
+  const o = parseJSON(txt);
+  if (!o) return;
+  if (o.format !== 'winterball-eingeloest' || !o.redeemed) { toast('Falsche Datei: bitte „Eingelöste exportieren“ vom anderen Handy nehmen'); return; }
+  if (S.listId && o.listId && S.listId !== o.listId) { toast('Gehört zu einer anderen Gästeliste'); return; }
+  let added = 0, conflicts = 0;
+  for (const [code, t] of Object.entries(o.redeemed)) {
+    if (!byCode.has(code) || !(+t > 0)) continue;
+    if (!S.redeemed[code]) { S.redeemed[code] = +t; added++; }
+    else { conflicts++; S.redeemed[code] = Math.min(S.redeemed[code], +t); }
+  }
+  save(); updateHeader(); renderData();
+  toast(added + ' neue Einlässe übernommen' + (conflicts ? ', ' + conflicts + ' auf beiden Handys erfasst' : ''));
+}
+$('#fRed').addEventListener('change', (e) => readFile(e.target, importRed));
+$('#bRed').addEventListener('click', () => { const v = $('#tRed').value; if (!v.trim()) return toast('Textfeld ist leer'); importRed(v); $('#tRed').value = ''; });
+$('#bReset').addEventListener('click', () => {
+  if (!inCount() && !Object.keys(S.redeemed).length) return toast('Es gibt keine Einlässe zum Zurücksetzen');
+  if (confirm('Wirklich ALLE ' + inCount() + ' Einlässe zurücksetzen?\nDie Gästeliste bleibt erhalten.')) { S.redeemed = {}; save(); updateHeader(); renderData(); toast('Alle Einlässe zurückgesetzt'); }
+});
+
+/* ---------- Start ---------- */
+load(); updateHeader(); show('scan');
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* optional */ }
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* z. B. file:// */ });
+})();
+</script>
+</body>
+</html>
