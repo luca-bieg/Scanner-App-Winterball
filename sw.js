@@ -1,5 +1,5 @@
-// Offline-Cache für den Einlass-Scanner (Build c5d1cb5c)
-const CACHE = 'einlass-c5d1cb5c';
+// Offline-Cache für den Einlass-Scanner (Build ad4f450d)
+const CACHE = 'einlass-ad4f450d';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {

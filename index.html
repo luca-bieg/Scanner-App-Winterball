@@ -51,6 +51,7 @@ button{font:inherit;color:inherit}
 .cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .guide{position:absolute;inset:0;pointer-events:none;display:none}
 .cam.live .guide{display:block}
+.cam.wait .guide i{border-color:rgba(255,255,255,.25)}
 .guide i{position:absolute;width:15%;aspect-ratio:1;border:4px solid rgba(143,211,255,.9)}
 .guide i:nth-child(1){left:18%;top:20%;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
 .guide i:nth-child(2){right:18%;top:20%;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
@@ -181,7 +182,21 @@ a{color:var(--ice)}
         <p>Setzt alle Einlässe zurück, die Gästeliste bleibt. Vor dem Ball einmal ausführen, wenn ihr getestet habt.</p>
         <button class="btn danger" id="bReset">Alle Einlässe zurücksetzen</button>
       </div>
-      <p style="color:var(--muted);font-size:12px;text-align:center">Gästenamen bleiben auf diesem Gerät gespeichert und werden nirgends hochgeladen.<br>Version c5d1cb5c</p>
+
+      <div class="sec">
+        <h3>Scanverzögerung</h3>
+        <p>Pause nach jedem Ergebnis, bevor der nächste Code gelesen wird. So wird beim Weitergeben des Tickets nichts versehentlich doppelt gescannt.</p>
+        <select id="selDelay" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);font:inherit;font-size:16px">
+          <option value="0">Keine Pause</option><option value="1">1 Sekunde</option><option value="2">2 Sekunden (Standard)</option><option value="3">3 Sekunden</option><option value="5">5 Sekunden</option>
+        </select>
+      </div>
+
+      <div class="sec">
+        <h3>Gästeliste löschen</h3>
+        <p>Löscht alle importierten Tickets <b>und</b> alle Einlässe von diesem Handy. Danach ist der Scanner leer und du kannst eine neue Gästeliste laden, zum Beispiel nach einer Probe oder für eine neue Veranstaltung.</p>
+        <button class="btn danger" id="bWipe">Alle Tickets löschen</button>
+      </div>
+      <p style="color:var(--muted);font-size:12px;text-align:center">Gästenamen bleiben auf diesem Gerät gespeichert und werden nirgends hochgeladen.<br>Version ad4f450d</p>
     </section>
   </main>
 
@@ -774,7 +789,12 @@ const ICONS = {
   bad: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.6"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg>',
   warn: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.6"/><path d="M12 7v6.2M12 16.6v.1"/></svg>'
 };
-let paused = false, resTimer = null, lastText = '', ignoreUntil = 0, lastRedeemed = null;
+let paused = false, resTimer = null, lastText = '', ignoreUntil = 0, lastRedeemed = null, blockedUntil = 0;
+const DKEY = 'wb-scanner-delay';
+function delayMs() {
+  try { const v = parseFloat(localStorage.getItem(DKEY)); if (v >= 0 && v <= 10) return v * 1000; } catch (e) { /* Standard */ }
+  return 2000;
+}
 
 function showResult(kind, o) {
   paused = true; clearTimeout(resTimer);
@@ -800,7 +820,7 @@ function showResult(kind, o) {
 function dismiss() {
   clearTimeout(resTimer);
   $('#result').hidden = true;
-  paused = false; ignoreUntil = Date.now() + 3000;
+  paused = false; ignoreUntil = Date.now() + 3000; blockedUntil = Date.now() + delayMs();
 }
 $('#result').addEventListener('click', dismiss);
 function undoLast() {
@@ -868,6 +888,8 @@ function stopCamera() {
 function tick() {
   loopTimer = setTimeout(tick, 70);
   if (!stream || paused || document.hidden || view !== 'scan') return;
+  if (Date.now() < blockedUntil) { cam.classList.add('wait'); return; }
+  cam.classList.remove('wait');
   const vw = video.videoWidth, vh = video.videoHeight;
   if (video.readyState < 2 || !vw) return;
   const sc = Math.min(1, 1280 / Math.max(vw, vh)), w = Math.round(vw * sc), h = Math.round(vh * sc);
@@ -935,6 +957,7 @@ function renderList() {
 
 /* ---------- Daten-Tab ---------- */
 function renderData() {
+  $('#selDelay').value = String(delayMs() / 1000);
   $('#dEvent').textContent = S.event || '–';
   $('#dTickets').textContent = S.tickets.length;
   $('#dIn').textContent = inCount();
@@ -1018,6 +1041,17 @@ $('#bRed').addEventListener('click', () => { const v = $('#tRed').value; if (!v.
 $('#bReset').addEventListener('click', () => {
   if (!inCount() && !Object.keys(S.redeemed).length) return toast('Es gibt keine Einlässe zum Zurücksetzen');
   if (confirm('Wirklich ALLE ' + inCount() + ' Einlässe zurücksetzen?\nDie Gästeliste bleibt erhalten.')) { S.redeemed = {}; save(); updateHeader(); renderData(); toast('Alle Einlässe zurückgesetzt'); }
+});
+$('#selDelay').addEventListener('change', (e) => { try { localStorage.setItem(DKEY, e.target.value); } catch (x) { /* egal */ } toast('Scanverzögerung: ' + (e.target.value === '0' ? 'keine Pause' : e.target.value + ' Sek.')); });
+$('#bWipe').addEventListener('click', () => {
+  if (!S.tickets.length) return toast('Es sind keine Tickets geladen');
+  const n = S.tickets.length, k = inCount();
+  if (!confirm('Wirklich ALLE ' + n + ' Tickets löschen?' + (k ? '\n\nDabei gehen auch ' + k + ' erfasste Einlässe verloren.' : '') + '\n\nDas lässt sich nicht rückgängig machen. Tipp: vorher „Eingelöste exportieren“.')) return;
+  if (k && !confirm('Letzte Sicherheitsfrage: ' + k + ' Einlässe wirklich verwerfen?')) return;
+  S = { v: 1, event: '', listId: '', tickets: [], redeemed: {} };
+  lastRedeemed = null; lastText = '';
+  rebuild(); save(); updateHeader(); renderData(); renderList();
+  toast('Alle Tickets gelöscht. Der Scanner ist leer.');
 });
 
 /* ---------- Start ---------- */
